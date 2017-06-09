@@ -23,9 +23,9 @@ import com.twitter.thrift.ServiceInstance;
 import com.twitter.util.Await;
 import com.twitter.util.Future;
 
-public class ClientMain {
+public class ShardKVClient {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ClientMain.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ShardKVClient.class);
 
   private static final String ZK_DEBUG = "127.0.0.1:2181";
   private static final String ZK_PATH = "/nodes";
@@ -37,7 +37,7 @@ public class ClientMain {
     DEBUG,
   }
 
-  public ClientMain(Env env) {
+  public ShardKVClient(Env env) {
     String zkAddress;
     switch (env) {
       case DEBUG:
@@ -98,7 +98,7 @@ public class ClientMain {
         for (String node : clients.keySet()) {
           LOG.info("Client node {} {} on service!", node, clients.get(node).getKey());
         }
-        ClientMain.this.clients = new ArrayList<>(clients.values());
+        ShardKVClient.this.clients = new ArrayList<>(clients.values());
       }
     });
   }
@@ -149,13 +149,5 @@ public class ClientMain {
     if (clients != null) {
       clients.clear();
     }
-  }
-
-  public static void main(String[] args) throws Exception {
-    ClientMain client = new ClientMain(Env.DEBUG);
-    System.out.println(client.put("k1", "v1"));
-    System.out.println(client.get("k1"));
-    client.close();
-    System.exit(0);
   }
 }

@@ -12,11 +12,11 @@ import com.twitter.finagle.Thrift;
 import com.twitter.util.Await;
 import com.twitter.util.Future;
 
-public class ServerMain {
+public class ShardKVServer {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ServerMain.class);
-  public static String ZK = "127.0.0.1:2181";
-  public static String ZK_PATH = "/kvservice/shard/%s";
+  private static final Logger LOG = LoggerFactory.getLogger(ShardKVServer.class);
+  public static String ZK_ADDRESS = "127.0.0.1:2181";
+  public static String ZK_PATH = "/shardkv/shards/%s";
 
   private int shardId;
   private int port;
@@ -24,7 +24,7 @@ public class ServerMain {
   private ListeningServer listeningServer;
   private Future<Announcement> clusterStatus;
 
-  public ServerMain(int shardId, int port) {
+  public ShardKVServer(int shardId, int port) {
     this.shardId = shardId;
     this.port = port;
   }
@@ -35,9 +35,8 @@ public class ServerMain {
       listeningServer = Thrift.serveIface(new InetSocketAddress(port), kvService);
       ServerAnnouncer zkAnnouncer = new ServerAnnouncer();
       String zkPath = String.format(ZK_PATH, shardId);
-      clusterStatus = zkAnnouncer.announce(ZK, zkPath, port);
-      System.out.println("Server start on zk:" + ZK + ", path:" + zkPath + ", port:" + port);
-
+      clusterStatus = zkAnnouncer.announce(ZK_ADDRESS, zkPath, port);
+      LOG.error("Server start on zk:{}, path:{}, port:{}", ZK_ADDRESS, zkPath, port);
       Runtime.getRuntime().addShutdownHook(new Thread() {
         @Override
         public void run() {
@@ -46,7 +45,6 @@ public class ServerMain {
       });
       Await.ready(listeningServer);
     } catch (Exception e) {
-      System.out.println(e);
       LOG.error("Start listeningServer failed : {}", Throwables.getStackTraceAsString(e));
       close();
     }
@@ -71,20 +69,19 @@ public class ServerMain {
 
   public static void main(String[] args) {
     if (args.length != 2) {
-      System.out.println("Usage: ServerMain <ShardId> <Port>");
-      System.out.println("Example: ServerMain 0 8091");
+      System.out.println("Usage: ShardKVServer <ShardId> <Port>");
+      System.out.println("Example: ShardKVServer 0 8091");
       return;
     }
 
     int shardId = Integer.valueOf(args[0]);
     int port = Integer.valueOf(args[1]);
 
-    ServerMain server = null;
+    ShardKVServer server = null;
     try {
-      server = new ServerMain(shardId, port);
+      server = new ShardKVServer(shardId, port);
       server.startServer();
     } catch (Exception e) {
-      e.printStackTrace();
       LOG.error("Server start failed : {}", Throwables.getStackTraceAsString(e));
       if (server != null) {
         server.close();

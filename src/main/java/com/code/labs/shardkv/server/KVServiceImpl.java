@@ -9,9 +9,12 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.twitter.util.ExecutorServiceFuturePool;
 import com.twitter.util.Function0;
 import com.twitter.util.Future;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KVServiceImpl implements com.code.labs.shardkv.KVService.ServiceIface {
 
+  private static final Logger LOG = LoggerFactory.getLogger(KVServiceImpl.class);
   ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("server-pool-thread%d").build();
   ThreadPoolExecutor executorService = new ThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS,
       new LinkedBlockingQueue<Runnable>(1000), threadFactory, new ThreadPoolExecutor.DiscardOldestPolicy());
@@ -26,8 +29,8 @@ public class KVServiceImpl implements com.code.labs.shardkv.KVService.ServiceIfa
       public void run() {
         while (true) {
           try {
-            Thread.sleep(500);
-            System.out.println(executorService);
+            Thread.sleep(5000);
+            LOG.info("Executor service status {}", executorService);
           } catch (InterruptedException e) {
             break;
           }
@@ -36,10 +39,6 @@ public class KVServiceImpl implements com.code.labs.shardkv.KVService.ServiceIfa
     };
     checkupThread.setDaemon(true);
     checkupThread.start();
-  }
-
-  public void close() {
-    executorService.shutdown();
   }
 
   @Override
@@ -60,5 +59,9 @@ public class KVServiceImpl implements com.code.labs.shardkv.KVService.ServiceIfa
         return true;
       }
     });
+  }
+
+  public void close() {
+    executorService.shutdown();
   }
 }
