@@ -1,4 +1,4 @@
-package com.code.labs.shardkv.server;
+package com.code.labs.shardkv.common;
 
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -16,11 +16,11 @@ import com.twitter.util.Future;
 
 import scala.Option;
 
-public class ServerAnnouncer {
+public class ShardKVAnnouncer {
 
   private ZkAnnouncer zkAnnouncer;
 
-  public ServerAnnouncer() {
+  public ShardKVAnnouncer() {
     ZkClientFactory zkClientFactory = new ZkClientFactory(Duration.apply(30, TimeUnit.SECONDS));
     zkAnnouncer = new ZkAnnouncer(zkClientFactory);
   }

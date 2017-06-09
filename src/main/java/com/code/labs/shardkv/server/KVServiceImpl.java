@@ -5,12 +5,13 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.twitter.util.ExecutorServiceFuturePool;
 import com.twitter.util.Function0;
 import com.twitter.util.Future;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class KVServiceImpl implements com.code.labs.shardkv.KVService.ServiceIface {
 
@@ -46,7 +47,7 @@ public class KVServiceImpl implements com.code.labs.shardkv.KVService.ServiceIfa
     return futurePool.apply(new Function0<String>() {
       @Override
       public String apply() {
-        return String.valueOf(shardId);
+        return String.format("shard %d's value for key %s", shardId, key);
       }
     });
   }

@@ -2,6 +2,7 @@ package com.code.labs.shardkv.server;
 
 import java.net.InetSocketAddress;
 
+import com.code.labs.shardkv.common.ShardKVAnnouncer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +34,7 @@ public class ShardKVServer {
     try {
       kvService = new KVServiceImpl(shardId);
       listeningServer = Thrift.serveIface(new InetSocketAddress(port), kvService);
-      ServerAnnouncer zkAnnouncer = new ServerAnnouncer();
+      ShardKVAnnouncer zkAnnouncer = new ShardKVAnnouncer();
       String zkPath = String.format(ZK_PATH, shardId);
       clusterStatus = zkAnnouncer.announce(ZK_ADDRESS, zkPath, port);
       LOG.error("Server start on zk:{}, path:{}, port:{}", ZK_ADDRESS, zkPath, port);
