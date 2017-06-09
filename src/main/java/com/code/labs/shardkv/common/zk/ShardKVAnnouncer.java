@@ -1,4 +1,4 @@
-package com.code.labs.shardkv.common;
+package com.code.labs.shardkv.common.zk;
 
 import java.net.Inet6Address;
 import java.net.InetAddress;

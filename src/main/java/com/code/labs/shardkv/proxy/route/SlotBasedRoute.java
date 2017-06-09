@@ -8,7 +8,7 @@ public class SlotBasedRoute extends RouteRule {
 
   private TreeMap<Integer,Integer> shardSlots = new TreeMap<>();
 
-  SlotBasedRoute(int shardSize) {
+  public SlotBasedRoute(int shardSize) {
     super(shardSize);
 
     shardSlots.clear();
@@ -19,7 +19,7 @@ public class SlotBasedRoute extends RouteRule {
   }
 
   @Override
-  int route(String key) {
+  public int route(String key) {
     int slot = Math.abs(key.hashCode() % SLOT_NUMBER);
     return shardSlots.get(slot);
   }

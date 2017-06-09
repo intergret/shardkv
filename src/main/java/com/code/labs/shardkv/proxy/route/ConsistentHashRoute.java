@@ -9,7 +9,7 @@ public class ConsistentHashRoute extends RouteRule {
 
   private TreeMap<Long,Integer> shardNodes = new TreeMap<>();
 
-  ConsistentHashRoute(int shardSize) {
+  public ConsistentHashRoute(int shardSize) {
     super(shardSize);
 
     shardNodes.clear();
@@ -21,7 +21,7 @@ public class ConsistentHashRoute extends RouteRule {
   }
 
   @Override
-  int route(String key) {
+  public int route(String key) {
     SortedMap<Long,Integer> tail = shardNodes.tailMap(MurmurHash.hash(key));
     if (tail.isEmpty()) {
       return shardNodes.get(shardNodes.firstKey());

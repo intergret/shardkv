@@ -2,7 +2,8 @@ package com.code.labs.shardkv.server;
 
 import java.net.InetSocketAddress;
 
-import com.code.labs.shardkv.common.ShardKVAnnouncer;
+import com.code.labs.shardkv.common.zk.ZKConfig;
+import com.code.labs.shardkv.common.zk.ShardKVAnnouncer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,12 +17,9 @@ import com.twitter.util.Future;
 public class ShardKVServer {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShardKVServer.class);
-  public static String ZK_ADDRESS = "127.0.0.1:2181";
-  public static String ZK_PATH = "/shardkv/server/shards/%s";
-
   private int shardId;
   private int port;
-  private KVServiceImpl kvService;
+  private KVServerImpl kvService;
   private ListeningServer listeningServer;
   private Future<Announcement> clusterStatus;
 
@@ -30,14 +28,15 @@ public class ShardKVServer {
     this.port = port;
   }
 
-  public void startServer() {
+  public void start() {
     try {
-      kvService = new KVServiceImpl(shardId);
+      kvService = new KVServerImpl(shardId);
       listeningServer = Thrift.serveIface(new InetSocketAddress(port), kvService);
       ShardKVAnnouncer zkAnnouncer = new ShardKVAnnouncer();
-      String zkPath = String.format(ZK_PATH, shardId);
-      clusterStatus = zkAnnouncer.announce(ZK_ADDRESS, zkPath, port);
-      LOG.error("Server start on zk:{}, path:{}, port:{}", ZK_ADDRESS, zkPath, port);
+      String zkPath = String.format(ZKConfig.SERVER_PATH, shardId);
+      clusterStatus = zkAnnouncer.announce(ZKConfig.DEBUG, zkPath, port);
+      LOG.error("Server start on zk:{}, path:{}, port:{}", ZKConfig.DEBUG, zkPath, port);
+
       Runtime.getRuntime().addShutdownHook(new Thread() {
         @Override
         public void run() {
@@ -81,7 +80,7 @@ public class ShardKVServer {
     ShardKVServer server = null;
     try {
       server = new ShardKVServer(shardId, port);
-      server.startServer();
+      server.start();
     } catch (Exception e) {
       LOG.error("Server start failed : {}", Throwables.getStackTraceAsString(e));
       if (server != null) {

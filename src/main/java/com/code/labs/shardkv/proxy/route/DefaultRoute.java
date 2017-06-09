@@ -1,13 +1,13 @@
 package com.code.labs.shardkv.proxy.route;
 
-public class MurmurHashRoute extends RouteRule {
+public class DefaultRoute extends RouteRule {
 
-  MurmurHashRoute(int shardSize) {
+  public DefaultRoute(int shardSize) {
     super(shardSize);
   }
 
   @Override
-  int route(String key) {
+  public int route(String key) {
     return Math.abs(key.hashCode() % shardSize);
   }
 }

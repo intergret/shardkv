@@ -6,18 +6,20 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
-import com.code.labs.shardkv.common.ZkEventListener;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.alibaba.fastjson.JSONObject;
-import com.code.labs.shardkv.KVService;
+import com.code.labs.shardkv.KVProxy;
+import com.code.labs.shardkv.common.Env;
+import com.code.labs.shardkv.common.zk.ZKConfig;
+import com.code.labs.shardkv.common.zk.ZkEventListener;
 import com.github.zkclient.ZkClient;
 import com.twitter.finagle.Thrift;
 import com.twitter.thrift.ServiceInstance;
@@ -28,29 +30,21 @@ public class ShardKVClient {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShardKVClient.class);
 
-  private static final String ZK_DEBUG = "127.0.0.1:2181";
-  private static final String ZK_PATH = "/nodes";
-  private static final Random random = new Random();
-
-  private volatile List<Map.Entry<String,KVService.ServiceIface>> clients;
-
-  public enum Env {
-    DEBUG,
-  }
+  private volatile List<Map.Entry<String,KVProxy.ServiceIface>> proxyList;
 
   public ShardKVClient(Env env) {
     String zkAddress;
     switch (env) {
       case DEBUG:
-        zkAddress = ZK_DEBUG;
+        zkAddress = ZKConfig.DEBUG;
         break;
       default:
         throw new RuntimeException("Env " + env + " not support.");
     }
     initClient(zkAddress);
 
-    if (CollectionUtils.isEmpty(clients)) {
-      throw new RuntimeException("Can't find client!");
+    if (CollectionUtils.isEmpty(proxyList)) {
+      throw new RuntimeException("Can't find proxy!");
     }
   }
 
@@ -58,9 +52,9 @@ public class ShardKVClient {
     final ZkClient zkClient = new ZkClient(zkAddress);
     zkClient.waitUntilConnected();
 
-    List<String> clientNodes = zkClient.getChildren(ZK_PATH);
-    final Map<String,Map.Entry<String,KVService.ServiceIface>> clients = new ConcurrentHashMap<>();
-    zkClient.subscribeChildChanges(ZK_PATH, new ZkEventListener(ZK_PATH, clientNodes) {
+    List<String> clientNodes = zkClient.getChildren(ZKConfig.PROXY_PATH);
+    final Map<String,Map.Entry<String,KVProxy.ServiceIface>> nodes = new ConcurrentHashMap<>();
+    zkClient.subscribeChildChanges(ZKConfig.PROXY_PATH, new ZkEventListener(ZKConfig.PROXY_PATH, clientNodes) {
       @Override
       public void onChildChange(String parent, List<String> children, List<String> newAdded, List<String> deleted) {
         for (String node : newAdded) {
@@ -69,49 +63,49 @@ public class ShardKVClient {
           ServiceInstance serviceInstance = JSONObject.parseObject(new String(bytes), ServiceInstance.class);
           String schema = String.format("%s:%s", serviceInstance.getServiceEndpoint().getHost(),
               serviceInstance.getServiceEndpoint().getPort());
-          KVService.ServiceIface iface = Thrift.newIface(schema, KVService.ServiceIface.class);
-          clients.put(node, new AbstractMap.SimpleEntry<>(schema, iface));
-          LOG.info("Client node {} {} joined!", node, schema);
+          KVProxy.ServiceIface iface = Thrift.newIface(schema, KVProxy.ServiceIface.class);
+          nodes.put(node, new AbstractMap.SimpleEntry<>(schema, iface));
+          LOG.info("Proxy node {} {} joined!", node, schema);
         }
         for (String node : deleted) {
-          clients.remove(node);
-          LOG.info("Client node {} left!", node);
+          nodes.remove(node);
+          LOG.info("Proxy node {} left!", node);
         }
 
         // ensure the new node overrides the old node.
         List<String> sortedNodes = new ArrayList<>();
-        for (String node : clients.keySet()) {
+        for (String node : nodes.keySet()) {
           sortedNodes.add(node);
         }
         Collections.sort(sortedNodes, Collections.reverseOrder());
 
         Set<String> uniqueClients = new HashSet<>();
         for (String node : sortedNodes) {
-          String schema = clients.get(node).getKey();
+          String schema = nodes.get(node).getKey();
           if (uniqueClients.contains(schema)) {
-            clients.remove(node);
-            LOG.warn("Client node {} {} duplicate, removed!", node, schema);
+            nodes.remove(node);
+            LOG.warn("Proxy node {} {} duplicate, removed!", node, schema);
           } else {
             uniqueClients.add(schema);
           }
         }
 
-        for (String node : clients.keySet()) {
-          LOG.info("Client node {} {} on service!", node, clients.get(node).getKey());
+        for (String node : nodes.keySet()) {
+          LOG.info("Proxy node {} {} on service!", node, nodes.get(node).getKey());
         }
-        ShardKVClient.this.clients = new ArrayList<>(clients.values());
+        ShardKVClient.this.proxyList = new ArrayList<>(nodes.values());
       }
     });
   }
 
-  private Map.Entry<String,KVService.ServiceIface> getClient() {
-    return clients.get(random.nextInt(clients.size()));
+  private Map.Entry<String,KVProxy.ServiceIface> getProxy() {
+    return proxyList.get(ThreadLocalRandom.current().nextInt(proxyList.size()));
   }
 
   public String get(String key) throws Exception {
     long start = System.currentTimeMillis();
-    Map.Entry<String,KVService.ServiceIface> client = getClient();
-    Future<String> future = client.getValue().get(key);
+    Map.Entry<String,KVProxy.ServiceIface> proxy = getProxy();
+    Future<String> future = proxy.getValue().get(key);
     try {
       return Await.result(future);
     } catch (Exception e) {
@@ -122,15 +116,15 @@ public class ShardKVClient {
     } finally {
       long elapse = System.currentTimeMillis() - start;
       if (elapse > 500) {
-        LOG.warn("Slow add request to {}, cost: {}ms", client.getKey(), elapse);
+        LOG.warn("Slow request to {}, cost: {}ms", proxy.getKey(), elapse);
       }
     }
   }
 
   public boolean put(String key, String value) throws Exception {
     long start = System.currentTimeMillis();
-    Map.Entry<String,KVService.ServiceIface> client = getClient();
-    Future<Boolean> future = client.getValue().put(key, value);
+    Map.Entry<String,KVProxy.ServiceIface> proxy = getProxy();
+    Future<Boolean> future = proxy.getValue().put(key, value);
     try {
       return Await.result(future);
     } catch (Exception e) {
@@ -141,14 +135,14 @@ public class ShardKVClient {
     } finally {
       long elapse = System.currentTimeMillis() - start;
       if (elapse > 500) {
-        LOG.warn("Slow add request to {}, cost: {}ms", client.getKey(), elapse);
+        LOG.warn("Slow request to {}, cost: {}ms", proxy.getKey(), elapse);
       }
     }
   }
 
   public void close() {
-    if (clients != null) {
-      clients.clear();
+    if (proxyList != null) {
+      proxyList.clear();
     }
   }
 }

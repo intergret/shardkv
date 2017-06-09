@@ -4,10 +4,10 @@ public abstract class RouteRule {
 
   protected int shardSize;
 
-  RouteRule(int shardSize) {
+  public RouteRule(int shardSize) {
     this.shardSize = shardSize;
   }
 
-  abstract int route(String key);
+  public abstract int route(String key);
 
 }

@@ -10,7 +10,7 @@ public class RoundRobinRoute extends RouteRule {
 
   private Iterator<Integer> shardIter;
 
-  RoundRobinRoute(int shardSize) {
+  public RoundRobinRoute(int shardSize) {
     super(shardSize);
 
     List<Integer> shardList = new ArrayList<>();
@@ -21,7 +21,7 @@ public class RoundRobinRoute extends RouteRule {
   }
 
   @Override
-  int route(String key) {
+  public int route(String key) {
     return shardIter.next();
   }
 }

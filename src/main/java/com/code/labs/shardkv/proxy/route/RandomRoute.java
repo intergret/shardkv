@@ -4,12 +4,12 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class RandomRoute extends RouteRule {
 
-  RandomRoute(int shardSize) {
+  public RandomRoute(int shardSize) {
     super(shardSize);
   }
 
   @Override
-  int route(String key) {
+  public int route(String key) {
     return ThreadLocalRandom.current().nextInt(shardSize);
   }
 }

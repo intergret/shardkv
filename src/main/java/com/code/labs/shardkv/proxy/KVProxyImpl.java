@@ -1,4 +1,4 @@
-package com.code.labs.shardkv.server;
+package com.code.labs.shardkv.proxy;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -13,18 +13,15 @@ import com.twitter.util.ExecutorServiceFuturePool;
 import com.twitter.util.Function0;
 import com.twitter.util.Future;
 
-public class KVServiceImpl implements com.code.labs.shardkv.KVService.ServiceIface {
+public class KVProxyImpl implements com.code.labs.shardkv.KVProxy.ServiceIface {
 
-  private static final Logger LOG = LoggerFactory.getLogger(KVServiceImpl.class);
-  ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("server-pool-thread%d").build();
+  private static final Logger LOG = LoggerFactory.getLogger(KVProxyImpl.class);
+  ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("proxy-thread-%d").build();
   ThreadPoolExecutor executorService = new ThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS,
       new LinkedBlockingQueue<Runnable>(1000), threadFactory, new ThreadPoolExecutor.DiscardOldestPolicy());
   ExecutorServiceFuturePool futurePool = new ExecutorServiceFuturePool(executorService, true);
 
-  private int shardId;
-
-  public KVServiceImpl(int shardId) {
-    this.shardId = shardId;
+  public KVProxyImpl() {
     Thread checkupThread = new Thread() {
       @Override
       public void run() {
@@ -47,7 +44,7 @@ public class KVServiceImpl implements com.code.labs.shardkv.KVService.ServiceIfa
     return futurePool.apply(new Function0<String>() {
       @Override
       public String apply() {
-        return String.format("shard %d's value for key %s", shardId, key);
+        return key;
       }
     });
   }

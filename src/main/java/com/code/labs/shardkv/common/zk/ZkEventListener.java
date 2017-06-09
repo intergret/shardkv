@@ -1,4 +1,4 @@
-package com.code.labs.shardkv.common;
+package com.code.labs.shardkv.common.zk;
 
 import java.util.ArrayList;
 import java.util.HashSet;

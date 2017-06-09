@@ -1,6 +1,6 @@
 namespace java com.code.labs.shardkv
 
-service KVService {
+service KVServer {
 
   string get(1: string key);
 
