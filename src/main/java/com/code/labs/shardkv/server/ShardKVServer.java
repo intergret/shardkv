@@ -17,7 +17,7 @@ public class ShardKVServer {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShardKVServer.class);
   public static String ZK_ADDRESS = "127.0.0.1:2181";
-  public static String ZK_PATH = "/shardkv/shards/%s";
+  public static String ZK_PATH = "/shardkv/server/shards/%s";
 
   private int shardId;
   private int port;
