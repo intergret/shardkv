@@ -31,8 +31,8 @@ public class ShardKVProxy {
       kvProxy = new KVProxyImpl();
       listeningServer = Thrift.serveIface(new InetSocketAddress(port), kvProxy);
       ShardKVAnnouncer zkAnnouncer = new ShardKVAnnouncer();
-      clusterStatus = zkAnnouncer.announce(Config.ZK_DEBUG, Config.ZK_PROXY_PATH, port);
-      LOG.error("Proxy start on zk:{}, path:{}, port:{}", Config.ZK_DEBUG, Config.ZK_PROXY_PATH, port);
+      clusterStatus = zkAnnouncer.announce(Config.ZK, Config.ZK_PROXY_PATH, port);
+      LOG.error("Proxy start on zk:{}, path:{}, port:{}", Config.ZK, Config.ZK_PROXY_PATH, port);
 
       Runtime.getRuntime().addShutdownHook(new Thread() {
         @Override

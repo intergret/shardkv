@@ -8,6 +8,8 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.code.labs.shardkv.GetResponse;
+import com.code.labs.shardkv.PutResponse;
 import com.code.labs.shardkv.server.storage.KVStore;
 import com.code.labs.shardkv.server.storage.MemoryStore;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -23,11 +25,9 @@ public class KVServerImpl implements com.code.labs.shardkv.KVServer.ServiceIface
       new LinkedBlockingQueue<Runnable>(1000), threadFactory, new ThreadPoolExecutor.DiscardOldestPolicy());
   ExecutorServiceFuturePool futurePool = new ExecutorServiceFuturePool(executorService, true);
 
-  private int shardId;
   private KVStore kvStore = new MemoryStore();
 
-  public KVServerImpl(int shardId) {
-    this.shardId = shardId;
+  public KVServerImpl() {
     Thread checkupThread = new Thread() {
       @Override
       public void run() {
@@ -46,21 +46,21 @@ public class KVServerImpl implements com.code.labs.shardkv.KVServer.ServiceIface
   }
 
   @Override
-  public Future<String> get(final String key) {
-    return futurePool.apply(new Function0<String>() {
+  public Future<GetResponse> get(final String key) {
+    return futurePool.apply(new Function0<GetResponse>() {
       @Override
-      public String apply() {
-        return String.format("shard %d's value for key %s is %s", shardId, key, kvStore.get(key));
+      public GetResponse apply() {
+        return new GetResponse(true).setValue(kvStore.get(key));
       }
     });
   }
 
   @Override
-  public Future<Boolean> put(final String key, final String value) {
-    return futurePool.apply(new Function0<Boolean>() {
+  public Future<PutResponse> put(final String key, final String value) {
+    return futurePool.apply(new Function0<PutResponse>() {
       @Override
-      public Boolean apply() {
-        return kvStore.put(key, value);
+      public PutResponse apply() {
+        return new PutResponse(true);
       }
     });
   }

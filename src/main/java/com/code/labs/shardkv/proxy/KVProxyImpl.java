@@ -1,5 +1,7 @@
 package com.code.labs.shardkv.proxy;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -8,6 +10,13 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.code.labs.shardkv.GetResponse;
+import com.code.labs.shardkv.ProxyGetResponse;
+import com.code.labs.shardkv.ProxyPutResponse;
+import com.code.labs.shardkv.PutResponse;
+import com.code.labs.shardkv.common.Config;
+import com.code.labs.shardkv.proxy.route.ConsistentHashRoute;
+import com.code.labs.shardkv.proxy.route.RouteRule;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.twitter.util.ExecutorServiceFuturePool;
 import com.twitter.util.Function0;
@@ -21,22 +30,51 @@ public class KVProxyImpl implements com.code.labs.shardkv.KVProxy.ServiceIface {
       new LinkedBlockingQueue<Runnable>(1000), threadFactory, new ThreadPoolExecutor.DiscardOldestPolicy());
   ExecutorServiceFuturePool futurePool = new ExecutorServiceFuturePool(executorService, true);
 
+  private Map<Integer,ShardClient> shardClients = new ConcurrentHashMap<>();
+  private RouteRule routeRule = new ConsistentHashRoute(Config.SHARD_SIZE);
+
+  public KVProxyImpl() {
+    for (int shardId = 0; shardId < Config.SHARD_SIZE; shardId++) {
+      shardClients.put(shardId, new ShardClient(Config.ZK, shardId));
+    }
+  }
+
   @Override
-  public Future<String> get(final String key) {
-    return futurePool.apply(new Function0<String>() {
+  public Future<ProxyGetResponse> get(final String key) {
+    return futurePool.apply(new Function0<ProxyGetResponse>() {
       @Override
-      public String apply() {
-        return key;
+      public ProxyGetResponse apply() {
+        int shardId = routeRule.route(key);
+        try {
+          GetResponse response = shardClients.get(shardId).read(key);
+          if (response.isSuccess()) {
+            return new ProxyGetResponse(shardId, true).setValue(response.getValue());
+          } else {
+            return new ProxyGetResponse(shardId, false).setMsg(response.getMsg());
+          }
+        } catch (Exception e) {
+          return new ProxyGetResponse(shardId, false).setMsg(e.toString());
+        }
       }
     });
   }
 
   @Override
-  public Future<Boolean> put(String key, String value) {
-    return futurePool.apply(new Function0<Boolean>() {
+  public Future<ProxyPutResponse> put(final String key, final String value) {
+    return futurePool.apply(new Function0<ProxyPutResponse>() {
       @Override
-      public Boolean apply() {
-        return true;
+      public ProxyPutResponse apply() {
+        int shardId = routeRule.route(key);
+        try {
+          PutResponse response = shardClients.get(shardId).write(key, value);
+          if (response.isSuccess()) {
+            return new ProxyPutResponse(shardId, true);
+          } else {
+            return new ProxyPutResponse(shardId, false).setMsg(response.getMsg());
+          }
+        } catch (Exception e) {
+          return new ProxyPutResponse(shardId, false).setMsg(e.toString());
+        }
       }
     });
   }
