@@ -2,7 +2,7 @@ package com.code.labs.shardkv.proxy;
 
 import java.net.InetSocketAddress;
 
-import com.code.labs.shardkv.common.zk.ZKConfig;
+import com.code.labs.shardkv.common.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,8 +31,8 @@ public class ShardKVProxy {
       kvProxy = new KVProxyImpl();
       listeningServer = Thrift.serveIface(new InetSocketAddress(port), kvProxy);
       ShardKVAnnouncer zkAnnouncer = new ShardKVAnnouncer();
-      clusterStatus = zkAnnouncer.announce(ZKConfig.DEBUG, ZKConfig.PROXY_PATH, port);
-      LOG.error("Proxy start on zk:{}, path:{}, port:{}", ZKConfig.DEBUG, ZKConfig.PROXY_PATH, port);
+      clusterStatus = zkAnnouncer.announce(Config.ZK_DEBUG, Config.ZK_PROXY_PATH, port);
+      LOG.error("Proxy start on zk:{}, path:{}, port:{}", Config.ZK_DEBUG, Config.ZK_PROXY_PATH, port);
 
       Runtime.getRuntime().addShutdownHook(new Thread() {
         @Override

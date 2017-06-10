@@ -8,6 +8,8 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.code.labs.shardkv.server.storage.KVStore;
+import com.code.labs.shardkv.server.storage.MemoryStore;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.twitter.util.ExecutorServiceFuturePool;
 import com.twitter.util.Function0;
@@ -22,6 +24,7 @@ public class KVServerImpl implements com.code.labs.shardkv.KVServer.ServiceIface
   ExecutorServiceFuturePool futurePool = new ExecutorServiceFuturePool(executorService, true);
 
   private int shardId;
+  private KVStore kvStore = new MemoryStore();
 
   public KVServerImpl(int shardId) {
     this.shardId = shardId;
@@ -47,17 +50,17 @@ public class KVServerImpl implements com.code.labs.shardkv.KVServer.ServiceIface
     return futurePool.apply(new Function0<String>() {
       @Override
       public String apply() {
-        return String.format("shard %d's value for key %s", shardId, key);
+        return String.format("shard %d's value for key %s is %s", shardId, key, kvStore.get(key));
       }
     });
   }
 
   @Override
-  public Future<Boolean> put(String key, String value) {
+  public Future<Boolean> put(final String key, final String value) {
     return futurePool.apply(new Function0<Boolean>() {
       @Override
       public Boolean apply() {
-        return true;
+        return kvStore.put(key, value);
       }
     });
   }

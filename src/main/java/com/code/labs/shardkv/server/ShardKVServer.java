@@ -3,7 +3,7 @@ package com.code.labs.shardkv.server;
 import java.net.InetSocketAddress;
 
 import com.code.labs.shardkv.common.Role;
-import com.code.labs.shardkv.common.zk.ZKConfig;
+import com.code.labs.shardkv.common.Config;
 import com.code.labs.shardkv.common.zk.ShardKVAnnouncer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,9 +37,9 @@ public class ShardKVServer {
       kvService = new KVServerImpl(shardId);
       listeningServer = Thrift.serveIface(new InetSocketAddress(port), kvService);
       ShardKVAnnouncer zkAnnouncer = new ShardKVAnnouncer();
-      String zkPath = String.format(ZKConfig.SERVER_PATH, shardId, role.name().toLowerCase());
-      clusterStatus = zkAnnouncer.announce(ZKConfig.DEBUG, zkPath, port);
-      LOG.error("Server start on zk:{}, path:{}, port:{}", ZKConfig.DEBUG, zkPath, port);
+      String zkPath = String.format(Config.ZK_SERVER_PATH, shardId, role.name().toLowerCase());
+      clusterStatus = zkAnnouncer.announce(Config.ZK_DEBUG, zkPath, port);
+      LOG.error("Server start on zk:{}, path:{}, port:{}", Config.SHARD_SIZE, zkPath, port);
 
       Runtime.getRuntime().addShutdownHook(new Thread() {
         @Override

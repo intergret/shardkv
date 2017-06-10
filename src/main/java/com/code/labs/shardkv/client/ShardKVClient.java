@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
 import com.alibaba.fastjson.JSONObject;
 import com.code.labs.shardkv.KVProxy;
 import com.code.labs.shardkv.common.Env;
-import com.code.labs.shardkv.common.zk.ZKConfig;
+import com.code.labs.shardkv.common.Config;
 import com.code.labs.shardkv.common.zk.ZkEventListener;
 import com.github.zkclient.ZkClient;
 import com.twitter.finagle.Thrift;
@@ -36,7 +36,7 @@ public class ShardKVClient {
     String zkAddress;
     switch (env) {
       case DEBUG:
-        zkAddress = ZKConfig.DEBUG;
+        zkAddress = Config.ZK_DEBUG;
         break;
       default:
         throw new RuntimeException("Env " + env + " not support.");
@@ -52,9 +52,9 @@ public class ShardKVClient {
     final ZkClient zkClient = new ZkClient(zkAddress);
     zkClient.waitUntilConnected();
 
-    List<String> clientNodes = zkClient.getChildren(ZKConfig.PROXY_PATH);
+    List<String> clientNodes = zkClient.getChildren(Config.ZK_PROXY_PATH);
     final Map<String,Map.Entry<String,KVProxy.ServiceIface>> nodes = new ConcurrentHashMap<>();
-    zkClient.subscribeChildChanges(ZKConfig.PROXY_PATH, new ZkEventListener(ZKConfig.PROXY_PATH, clientNodes) {
+    zkClient.subscribeChildChanges(Config.ZK_PROXY_PATH, new ZkEventListener(Config.ZK_PROXY_PATH, clientNodes) {
       @Override
       public void onChildChange(String parent, List<String> children, List<String> newAdded, List<String> deleted) {
         for (String node : newAdded) {
