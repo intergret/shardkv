@@ -59,8 +59,8 @@ public class ShardKVClient {
       public void onChildChange(String parent, List<String> children, List<String> newAdded, List<String> deleted) {
         for (String node : newAdded) {
           String fullPath = FilenameUtils.separatorsToUnix(FilenameUtils.concat(parent, node));
-          byte[] bytes = zkClient.readData(fullPath);
-          ServiceInstance serviceInstance = JSONObject.parseObject(new String(bytes), ServiceInstance.class);
+          String instanceInfo = new String(zkClient.readData(fullPath));
+          ServiceInstance serviceInstance = JSONObject.parseObject(instanceInfo, ServiceInstance.class);
           String schema = String.format("%s:%s", serviceInstance.getServiceEndpoint().getHost(),
               serviceInstance.getServiceEndpoint().getPort());
           KVProxy.ServiceIface iface = Thrift.newIface(schema, KVProxy.ServiceIface.class);
@@ -98,13 +98,13 @@ public class ShardKVClient {
     });
   }
 
-  private Map.Entry<String,KVProxy.ServiceIface> getProxy() {
+  private Map.Entry<String,KVProxy.ServiceIface> randomSelectProxy() {
     return proxyList.get(ThreadLocalRandom.current().nextInt(proxyList.size()));
   }
 
   public String get(String key) throws Exception {
     long start = System.currentTimeMillis();
-    Map.Entry<String,KVProxy.ServiceIface> proxy = getProxy();
+    Map.Entry<String,KVProxy.ServiceIface> proxy = randomSelectProxy();
     Future<String> future = proxy.getValue().get(key);
     try {
       return Await.result(future);
@@ -123,7 +123,7 @@ public class ShardKVClient {
 
   public boolean put(String key, String value) throws Exception {
     long start = System.currentTimeMillis();
-    Map.Entry<String,KVProxy.ServiceIface> proxy = getProxy();
+    Map.Entry<String,KVProxy.ServiceIface> proxy = randomSelectProxy();
     Future<Boolean> future = proxy.getValue().put(key, value);
     try {
       return Await.result(future);

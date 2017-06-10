@@ -21,24 +21,6 @@ public class KVProxyImpl implements com.code.labs.shardkv.KVProxy.ServiceIface {
       new LinkedBlockingQueue<Runnable>(1000), threadFactory, new ThreadPoolExecutor.DiscardOldestPolicy());
   ExecutorServiceFuturePool futurePool = new ExecutorServiceFuturePool(executorService, true);
 
-  public KVProxyImpl() {
-    Thread checkupThread = new Thread() {
-      @Override
-      public void run() {
-        while (true) {
-          try {
-            Thread.sleep(5000);
-            LOG.info("Executor service status {}", executorService);
-          } catch (InterruptedException e) {
-            break;
-          }
-        }
-      }
-    };
-    checkupThread.setDaemon(true);
-    checkupThread.start();
-  }
-
   @Override
   public Future<String> get(final String key) {
     return futurePool.apply(new Function0<String>() {
