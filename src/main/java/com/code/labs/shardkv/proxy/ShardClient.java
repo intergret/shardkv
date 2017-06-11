@@ -93,10 +93,10 @@ public class ShardClient {
     });
 
     if (CollectionUtils.isEmpty(masterList)) {
-      throw new RuntimeException("Can't find Master!");
+      throw new RuntimeException("Can't find Master in Shard " + shardId + "!");
     }
     if (masterList.size() != 1) {
-      throw new RuntimeException("Find multi Master!");
+      throw new RuntimeException("Find multi Master in Shard " + shardId + "!");
     }
   }
 
@@ -148,7 +148,7 @@ public class ShardClient {
     });
 
     if (CollectionUtils.isEmpty(slaveList)) {
-      throw new RuntimeException("Can't find Slave!");
+      throw new RuntimeException("Can't find Slave in Shard " + shardId + "!");
     }
   }
 

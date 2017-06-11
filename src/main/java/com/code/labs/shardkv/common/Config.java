@@ -2,7 +2,7 @@ package com.code.labs.shardkv.common;
 
 public class Config {
 
-  public static final int SHARD_SIZE = 3;
+  public static final int SHARD_SIZE = 2;
 
   public static final String ZK = "127.0.0.1:2181";
 

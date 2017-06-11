@@ -39,7 +39,7 @@ public class ShardKVServer {
       ShardKVAnnouncer zkAnnouncer = new ShardKVAnnouncer();
       String zkPath = String.format(Config.ZK_SERVER_PATH, shardId, role.name().toLowerCase());
       clusterStatus = zkAnnouncer.announce(Config.ZK, zkPath, port);
-      LOG.error("Server start on zk:{}, path:{}, port:{}", Config.SHARD_SIZE, zkPath, port);
+      LOG.error("Server start on zk:{}, path:{}, port:{}", Config.ZK, zkPath, port);
 
       Runtime.getRuntime().addShutdownHook(new Thread() {
         @Override

@@ -60,6 +60,7 @@ public class KVServerImpl implements com.code.labs.shardkv.KVServer.ServiceIface
     return futurePool.apply(new Function0<PutResponse>() {
       @Override
       public PutResponse apply() {
+        kvStore.put(key, value);
         return new PutResponse(true);
       }
     });
