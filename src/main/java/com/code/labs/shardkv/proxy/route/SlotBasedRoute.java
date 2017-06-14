@@ -13,8 +13,15 @@ public class SlotBasedRoute extends RouteRule {
 
     shardSlots.clear();
     int slotSizePerShard = SLOT_NUMBER / shardSize;
-    for (int slot = 0; slot < SLOT_NUMBER; slot++) {
-      shardSlots.put(slot, slot / slotSizePerShard);
+    int shardWithMoreSlot = SLOT_NUMBER - slotSizePerShard * shardSize;
+
+    int slot = 0;
+    int firstPartSlots = shardWithMoreSlot * (slotSizePerShard + 1);
+    for (; slot < firstPartSlots; slot++) {
+      shardSlots.put(slot, slot / (slotSizePerShard + 1));
+    }
+    for (; slot < SLOT_NUMBER; slot++) {
+      shardSlots.put(slot, (slot - firstPartSlots) / slotSizePerShard + shardWithMoreSlot);
     }
   }
 

@@ -193,14 +193,14 @@ public class ShardClient {
 
     Future<List<Boolean>> collected = Future.collect(futures);
     try {
-      boolean finalSuccess = true;
+      int successCount = 0;
       List<Boolean> resultList = Await.result(collected);
       for (boolean success : resultList) {
-        if (!success) {
-          finalSuccess = false;
-          break;
+        if (success) {
+          successCount += 1;
         }
       }
+      boolean finalSuccess = successCount == resultList.size();
 
       PutResponse putResponse = new PutResponse(finalSuccess);
       if (!finalSuccess) {
