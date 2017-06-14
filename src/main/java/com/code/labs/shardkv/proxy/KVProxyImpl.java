@@ -35,7 +35,7 @@ public class KVProxyImpl implements com.code.labs.shardkv.KVProxy.ServiceIface {
 
   public KVProxyImpl() {
     for (int shardId = 0; shardId < Config.SHARD_SIZE; shardId++) {
-      shardClients.put(shardId, new ShardClient(Config.ZK, shardId));
+      shardClients.put(shardId, new ShardClient(shardId));
     }
   }
 

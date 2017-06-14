@@ -43,7 +43,7 @@ public class ShardKVAnnouncer {
 
   public Future<Announcement> announce(String zk, String path, int port) {
     // set socket address to 127.0.0.1 for local debug
-    // new InetSocketAddress(getHostAddress(), port)
+    // use new InetSocketAddress(getHostAddress(), port) instead for online
     return zkAnnouncer.announce(zk, path, 0, new InetSocketAddress("127.0.0.1", port), Option.<String> empty());
   }
 }

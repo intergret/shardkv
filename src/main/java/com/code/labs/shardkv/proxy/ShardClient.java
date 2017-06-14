@@ -36,10 +36,10 @@ public class ShardClient {
 
   private int shardId;
 
-  public ShardClient(final String zkAddress, final int shardId) {
+  public ShardClient(int shardId) {
     this.shardId = shardId;
 
-    ZkClient zkClient = new ZkClient(zkAddress);
+    ZkClient zkClient = new ZkClient(Config.ZK);
     zkClient.waitUntilConnected();
     initMasterView(zkClient);
     initSlaveView(zkClient);
