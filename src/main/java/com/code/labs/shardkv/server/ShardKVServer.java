@@ -1,53 +1,37 @@
 package com.code.labs.shardkv.server;
 
 import java.net.InetSocketAddress;
-import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.code.labs.shardkv.common.Config;
-import com.code.labs.shardkv.common.Role;
+import com.code.labs.shardkv.common.SystemUtil;
 import com.code.labs.shardkv.common.zk.ShardKVAnnouncer;
-import com.github.zkclient.ZkClient;
 import com.google.common.base.Throwables;
 import com.twitter.finagle.Announcement;
 import com.twitter.finagle.ListeningServer;
 import com.twitter.finagle.Thrift;
 import com.twitter.util.Await;
 import com.twitter.util.Future;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ShardKVServer {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShardKVServer.class);
   private int shardId;
-  private Role role;
   private int port;
 
   private KVServerImpl kvService;
   private ListeningServer listeningServer;
   private Future<Announcement> clusterStatus;
 
-  public ShardKVServer(int shardId, Role role, int port) {
+  public ShardKVServer(int shardId) {
     this.shardId = shardId;
-    this.role = role;
-    this.port = port;
+    this.port = SystemUtil.getAvailablePort();
   }
 
   public void start() {
     try {
-      String zkPath = String.format(Config.ZK_SERVER_PATH, shardId, role.name().toLowerCase());
-      if (this.role == Role.MASTER) {
-        ZkClient zkClient = new ZkClient(Config.ZK);
-        zkClient.waitUntilConnected();
-        List<String> masterNodes = zkClient.getChildren(zkPath);
-        zkClient.close();
-
-        if (masterNodes.size() > 0) {
-          throw new RuntimeException("Master for Shard " + shardId + " already exist!");
-        }
-      }
-
+      String zkPath = String.format(Config.ZK_SERVER_PATH, shardId);
       kvService = new KVServerImpl();
       listeningServer = Thrift.serveIface(new InetSocketAddress(port), kvService);
       ShardKVAnnouncer zkAnnouncer = new ShardKVAnnouncer();
@@ -85,19 +69,16 @@ public class ShardKVServer {
   }
 
   public static void main(String[] args) {
-    if (args.length != 3) {
-      System.out.println("Usage: ShardKVServer <ShardId> <Role> <Port>");
-      System.out.println("Example: ShardKVServer 0 master 8091");
+    if (args.length != 1) {
+      System.out.println("Usage: ShardKVServer <ShardId>");
+      System.out.println("Example: ShardKVServer 1");
       return;
     }
 
     int shardId = Integer.valueOf(args[0]);
-    Role role = Role.valueOf(args[1].toUpperCase());
-    int port = Integer.valueOf(args[2]);
-
     ShardKVServer server = null;
     try {
-      server = new ShardKVServer(shardId, role, port);
+      server = new ShardKVServer(shardId);
       server.start();
     } catch (Exception e) {
       LOG.error("Server start failed : {}", Throwables.getStackTraceAsString(e));

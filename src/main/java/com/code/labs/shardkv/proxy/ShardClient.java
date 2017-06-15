@@ -8,18 +8,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.io.FilenameUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.concurrent.ThreadLocalRandom;
 
 import com.alibaba.fastjson.JSONObject;
 import com.code.labs.shardkv.GetResponse;
 import com.code.labs.shardkv.KVServer;
 import com.code.labs.shardkv.PutResponse;
 import com.code.labs.shardkv.common.Config;
-import com.code.labs.shardkv.common.Role;
 import com.code.labs.shardkv.common.zk.ZkEventListener;
 import com.github.zkclient.ZkClient;
 import com.twitter.finagle.Thrift;
@@ -27,83 +22,30 @@ import com.twitter.thrift.ServiceInstance;
 import com.twitter.util.Await;
 import com.twitter.util.Future;
 import com.twitter.util.FutureTransformer;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.io.FilenameUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ShardClient {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShardClient.class);
-  private volatile List<Map.Entry<String,KVServer.ServiceIface>> masterList;
-  private volatile List<Map.Entry<String,KVServer.ServiceIface>> slaveList;
+  private volatile List<Map.Entry<String,KVServer.ServiceIface>> replicaList;
 
   private int shardId;
 
   public ShardClient(int shardId) {
     this.shardId = shardId;
+    initShardClient();
+  }
 
-    ZkClient zkClient = new ZkClient(Config.ZK);
+  private void initShardClient() {
+    final ZkClient zkClient = new ZkClient(Config.ZK);
     zkClient.waitUntilConnected();
-    initMasterView(zkClient);
-    initSlaveView(zkClient);
-  }
 
-  private void initMasterView(final ZkClient zkClient) {
-    String zkMasterPath = String.format(Config.ZK_SERVER_PATH, shardId, Role.MASTER.name().toLowerCase());
-    List<String> clientNodes = zkClient.getChildren(zkMasterPath);
-    final Map<String,Map.Entry<String,KVServer.ServiceIface>> nodes = new ConcurrentHashMap<>();
-    zkClient.subscribeChildChanges(zkMasterPath, new ZkEventListener(zkMasterPath, clientNodes) {
-      @Override
-      public void onChildChange(String parent, List<String> children, List<String> newAdded, List<String> deleted) {
-        for (String node : newAdded) {
-          String fullPath = FilenameUtils.separatorsToUnix(FilenameUtils.concat(parent, node));
-          String instanceInfo = new String(zkClient.readData(fullPath));
-          ServiceInstance serviceInstance = JSONObject.parseObject(instanceInfo, ServiceInstance.class);
-          String schema = String.format("%s:%s", serviceInstance.getServiceEndpoint().getHost(),
-              serviceInstance.getServiceEndpoint().getPort());
-          KVServer.ServiceIface iface = Thrift.newIface(schema, KVServer.ServiceIface.class);
-          nodes.put(node, new AbstractMap.SimpleEntry<>(schema, iface));
-          LOG.info("Shard {} Master node {} {} joined!", shardId, node, schema);
-        }
-        for (String node : deleted) {
-          nodes.remove(node);
-          LOG.info("Shard {} Master node {} left!", shardId, node);
-        }
-
-        // ensure the new node overrides the old node.
-        List<String> sortedNodes = new ArrayList<>();
-        for (String node : nodes.keySet()) {
-          sortedNodes.add(node);
-        }
-        Collections.sort(sortedNodes, Collections.reverseOrder());
-
-        Set<String> uniqueClients = new HashSet<>();
-        for (String node : sortedNodes) {
-          String schema = nodes.get(node).getKey();
-          if (uniqueClients.contains(schema)) {
-            nodes.remove(node);
-            LOG.warn("Shard {} Master node {} {} duplicate, removed!", shardId, node, schema);
-          } else {
-            uniqueClients.add(schema);
-          }
-        }
-
-        for (String node : nodes.keySet()) {
-          LOG.info("Shard {} Master node {} {} on service!", shardId, node, nodes.get(node).getKey());
-        }
-        masterList = new ArrayList<>(nodes.values());
-      }
-    });
-
-    if (CollectionUtils.isEmpty(masterList)) {
-      throw new RuntimeException("Can't find Master in Shard " + shardId + "!");
-    }
-    if (masterList.size() != 1) {
-      throw new RuntimeException("Find multi Master in Shard " + shardId + "!");
-    }
-  }
-
-  private void initSlaveView(final ZkClient zkClient) {
-    String zkSlavePath = String.format(Config.ZK_SERVER_PATH, shardId, Role.SLAVE.name().toLowerCase());
+    String zkSlavePath = String.format(Config.ZK_SERVER_PATH, shardId);
     List<String> clientNodes = zkClient.getChildren(zkSlavePath);
-    final Map<String,Map.Entry<String,KVServer.ServiceIface>> nodes = new ConcurrentHashMap<>();
+    final Map<String,Map.Entry<String,KVServer.ServiceIface>> replicas = new ConcurrentHashMap<>();
     zkClient.subscribeChildChanges(zkSlavePath, new ZkEventListener(zkSlavePath, clientNodes) {
       @Override
       public void onChildChange(String parent, List<String> children, List<String> newAdded, List<String> deleted) {
@@ -114,48 +56,52 @@ public class ShardClient {
           String schema = String.format("%s:%s", serviceInstance.getServiceEndpoint().getHost(),
               serviceInstance.getServiceEndpoint().getPort());
           KVServer.ServiceIface iface = Thrift.newIface(schema, KVServer.ServiceIface.class);
-          nodes.put(node, new AbstractMap.SimpleEntry<>(schema, iface));
-          LOG.info("Shard {} Slave node {} {} joined!", shardId, node, schema);
+          replicas.put(node, new AbstractMap.SimpleEntry<>(schema, iface));
+          LOG.info("Shard {} replica {} {} joined!", shardId, node, schema);
         }
         for (String node : deleted) {
-          nodes.remove(node);
-          LOG.info("Shard {} Slave node {} left!", shardId, node);
+          replicas.remove(node);
+          LOG.info("Shard {} replica {} left!", shardId, node);
         }
 
         // ensure the new node overrides the old node.
-        List<String> sortedNodes = new ArrayList<>();
-        for (String node : nodes.keySet()) {
-          sortedNodes.add(node);
+        List<String> sortedReplica = new ArrayList<>();
+        for (String replica : replicas.keySet()) {
+          sortedReplica.add(replica);
         }
-        Collections.sort(sortedNodes, Collections.reverseOrder());
+        Collections.sort(sortedReplica, Collections.reverseOrder());
 
         Set<String> uniqueClients = new HashSet<>();
-        for (String node : sortedNodes) {
-          String schema = nodes.get(node).getKey();
+        for (String replica : sortedReplica) {
+          String schema = replicas.get(replica).getKey();
           if (uniqueClients.contains(schema)) {
-            nodes.remove(node);
-            LOG.warn("Shard {} Slave node {} {} duplicate, removed!", shardId, node, schema);
+            replicas.remove(replica);
+            LOG.warn("Shard {} replica {} {} duplicate, removed!", shardId, replica, schema);
           } else {
             uniqueClients.add(schema);
           }
         }
 
-        for (String node : nodes.keySet()) {
-          LOG.info("Shard {} Slave node {} {} on service!", shardId, node, nodes.get(node).getKey());
+        for (String replica : replicas.keySet()) {
+          LOG.info("Shard {} replica {} {} on service!", shardId, replica, replicas.get(replica).getKey());
         }
-        slaveList = new ArrayList<>(nodes.values());
+        replicaList = new ArrayList<>(replicas.values());
       }
     });
 
-    if (CollectionUtils.isEmpty(slaveList)) {
-      throw new RuntimeException("Can't find Slave in Shard " + shardId + "!");
+    if (CollectionUtils.isEmpty(replicaList)) {
+      throw new RuntimeException("No replica in Shard " + shardId + "!");
     }
+  }
+
+  public Map.Entry<String,KVServer.ServiceIface> getReplica() {
+    return replicaList.get(ThreadLocalRandom.current().nextInt(replicaList.size()));
   }
 
   public GetResponse read(String key) throws Exception {
     long start = System.currentTimeMillis();
-    Map.Entry<String,KVServer.ServiceIface> master = masterList.get(0);
-    Future<GetResponse> future = master.getValue().get(key);
+    Map.Entry<String,KVServer.ServiceIface> replica = getReplica();
+    Future<GetResponse> future = replica.getValue().get(key);
     try {
       return Await.result(future);
     } catch (Exception e) {
@@ -166,29 +112,25 @@ public class ShardClient {
     } finally {
       long elapse = System.currentTimeMillis() - start;
       if (elapse > 500) {
-        LOG.warn("Slow request to {}, cost: {}ms", master.getKey(), elapse);
+        LOG.warn("Slow request to {}, cost: {}ms", replica.getKey(), elapse);
       }
     }
   }
 
-  private FutureTransformer<PutResponse,Boolean> futureTransformer = new FutureTransformer<PutResponse,Boolean>() {
-    @Override
-    public Boolean map(PutResponse response) {
-      return response.success;
-    }
-
-    @Override
-    public Boolean handle(Throwable t) {
-      return false;
-    }
-  };
-
   public PutResponse write(String key, String value) throws Exception {
     List<Future<Boolean>> futures = new ArrayList<>();
-    Map.Entry<String,KVServer.ServiceIface> master = masterList.get(0);
-    futures.add(master.getValue().put(key, value).transformedBy(futureTransformer));
-    for (final Map.Entry<String,KVServer.ServiceIface> slave : slaveList) {
-      futures.add(slave.getValue().put(key, value).transformedBy(futureTransformer));
+    for (final Map.Entry<String,KVServer.ServiceIface> replica : replicaList) {
+      futures.add(replica.getValue().put(key, value).transformedBy(new FutureTransformer<PutResponse,Boolean>() {
+        @Override
+        public Boolean map(PutResponse response) {
+          return response.success;
+        }
+
+        @Override
+        public Boolean handle(Throwable t) {
+          return false;
+        }
+      }));
     }
 
     Future<List<Boolean>> collected = Future.collect(futures);
@@ -204,7 +146,7 @@ public class ShardClient {
 
       PutResponse putResponse = new PutResponse(finalSuccess);
       if (!finalSuccess) {
-        putResponse.setMsg("Write value to both master and slave failed!");
+        putResponse.setMsg("Write value to all replicas failed!");
       }
       return putResponse;
     } catch (Exception e) {
