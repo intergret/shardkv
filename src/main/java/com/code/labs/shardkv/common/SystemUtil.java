@@ -8,14 +8,7 @@ import java.net.ServerSocket;
 import java.net.SocketException;
 import java.util.Collections;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Throwables;
-
 public class SystemUtil {
-
-  private static final Logger LOG = LoggerFactory.getLogger(SystemUtil.class);
 
   public static String getHostAddress() {
     try {
@@ -33,19 +26,10 @@ public class SystemUtil {
   }
 
   public static int getAvailablePort() {
-    ServerSocket serverSocket = null;
-    try {
-      serverSocket = new ServerSocket(0);
-      return serverSocket.getLocalPort();
-    } catch (IOException e) {} finally {
-      if (serverSocket != null) {
-        try {
-          serverSocket.close();
-        } catch (IOException e) {
-          LOG.info("Get available port exception {}", Throwables.getStackTraceAsString(e));
-        }
-      }
-    }
+    try (ServerSocket ss = new ServerSocket(0)) {
+      ss.setReuseAddress(true);
+      return ss.getLocalPort();
+    } catch (IOException e) {}
     throw new RuntimeException("No available port found!");
   }
 }
